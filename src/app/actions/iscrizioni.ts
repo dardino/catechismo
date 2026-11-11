@@ -166,3 +166,132 @@ export async function deleteIscrizioneAnnoAction(id: string) {
   revalidatePath("/classi");
   revalidatePath("/presenze");
 }
+
+export async function getBulkIscrizioneWizardData() {
+  await requireUser();
+  await ensureDefaultCorsi();
+  const db = await getDb();
+  const [iscrittiRows, iscrizioniRows, corsiRows, anniRows] = await Promise.all([
+    db
+      .select({
+        id: iscritti.id,
+        codiceNumerico: iscritti.codiceNumerico,
+        cognomeIscritto: iscritti.cognomeIscritto,
+        nomeIscritto: iscritti.nomeIscritto,
+        classeScolastica: iscritti.classeScolastica,
+        plessoScolastico: iscritti.plessoScolastico,
+        nascosto: iscritti.nascosto,
+      })
+      .from(iscritti)
+      .where(eq(iscritti.nascosto, false))
+      .orderBy(asc(iscritti.cognomeIscritto), asc(iscritti.nomeIscritto)),
+    db
+      .select({
+        iscrittoId: iscrizioniAnni.iscrittoId,
+        anni: iscrizioniAnni.anni,
+        corsoId: iscrizioniAnni.corsoId,
+        dataIscrizione: iscrizioniAnni.dataIscrizione,
+        preferenzaInsegnanteId: iscrizioniAnni.preferenzaInsegnanteId,
+        createdAt: iscrizioniAnni.createdAt,
+      })
+      .from(iscrizioniAnni)
+      .orderBy(desc(iscrizioniAnni.dataIscrizione), desc(iscrizioniAnni.createdAt)),
+    db.select().from(corsi).orderBy(asc(corsi.ordine), asc(corsi.nome)),
+    db.select({ anni: iscrizioniAnni.anni }).from(iscrizioniAnni).groupBy(iscrizioniAnni.anni).orderBy(desc(iscrizioniAnni.anni)),
+  ]);
+
+  const anniSet = new Set(anniRows.map((r) => r.anni));
+  const corrente = getAnnoScolasticoCorrente();
+  anniSet.add(corrente);
+  return {
+    iscritti: iscrittiRows,
+    iscrizioni: iscrizioniRows,
+    corsi: corsiRows,
+    anniOptions: Array.from(anniSet).sort().reverse(),
+    annoCorrente: corrente,
+  };
+}
+
+export type BulkIscrizioniResult = { ok?: boolean; error?: string; created: number; skipped: number; errors: string[] };
+
+export async function bulkCreateIscrizioniAction(input: {
+  anni: string;
+  corsoId: string;
+  libro: boolean;
+  quota: string;
+  iscrittoIds: string[];
+}): Promise<BulkIscrizioniResult> {
+  await requireWrite();
+  const anni = String(input.anni || "").trim();
+  const corsoId = String(input.corsoId || "").trim();
+  const iscrittoIds = Array.isArray(input.iscrittoIds) ? input.iscrittoIds.filter(Boolean) : [];
+  if (!anni) return { ok: false, error: "Seleziona l'anno.", created: 0, skipped: 0, errors: [] };
+  if (!corsoId) return { ok: false, error: "Seleziona il corso.", created: 0, skipped: 0, errors: [] };
+  if (iscrittoIds.length === 0) return { ok: false, error: "Seleziona almeno un iscritto.", created: 0, skipped: 0, errors: [] };
+  const quota = parseQuota(String(input.quota ?? "0"));
+  if (quota == null) return { ok: false, error: "Quota non valida.", created: 0, skipped: 0, errors: [] };
+
+  const db = await getDb();
+  // gather info
+  const iscrittiRows = await db
+    .select({ id: iscritti.id, classe: iscritti.classeScolastica, plesso: iscritti.plessoScolastico, cognome: iscritti.cognomeIscritto, nome: iscritti.nomeIscritto, codice: iscritti.codiceNumerico })
+    .from(iscritti);
+  const byId = new Map(iscrittiRows.map((r) => [r.id, r]));
+
+  // last previous enrollment preference per iscritto (by data desc, createdAt desc)
+  const prev = await db
+    .select({
+      iscrittoId: iscrizioniAnni.iscrittoId,
+      dataIscrizione: iscrizioniAnni.dataIscrizione,
+      createdAt: iscrizioniAnni.createdAt,
+      preferenzaInsegnanteId: iscrizioniAnni.preferenzaInsegnanteId,
+    })
+    .from(iscrizioniAnni)
+    .orderBy(desc(iscrizioniAnni.dataIscrizione), desc(iscrizioniAnni.createdAt));
+  const lastPref = new Map<string, string | null>();
+  for (const p of prev) {
+    if (!lastPref.has(p.iscrittoId)) lastPref.set(p.iscrittoId, p.preferenzaInsegnanteId ?? null);
+  }
+
+  const today = new Date();
+  const dataIscrizione = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+  let created = 0;
+  let skipped = 0;
+  const errors: string[] = [];
+
+  for (const id of iscrittoIds) {
+    const info = byId.get(id);
+    if (!info) { errors.push(`Iscritto non trovato (${id}).`); continue; }
+    const label = `${info.codice} - ${info.cognome} ${info.nome}`;
+    const preferenzaInsegnanteId = lastPref.has(id) ? (lastPref.get(id) ?? null) : null;
+    try {
+      await db.insert(iscrizioniAnni).values({
+        iscrittoId: id,
+        dataIscrizione,
+        anni,
+        corsoId,
+        preferenzaInsegnanteId,
+        libro: !!input.libro,
+        quota,
+        classe: info.classe || "",
+        plesso: info.plesso || "",
+      });
+      created++;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.toLowerCase().includes("unique")) {
+        skipped++;
+      } else {
+        errors.push(`${label}: ${msg}`);
+      }
+    }
+  }
+
+  if (created > 0) {
+    revalidatePath("/iscrizioni");
+    revalidatePath("/classi");
+    revalidatePath("/presenze");
+  }
+  return { ok: errors.length === 0, created, skipped, errors };
+}

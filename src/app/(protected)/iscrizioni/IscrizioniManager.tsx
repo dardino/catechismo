@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { createIscrizioneAnnoAction, deleteIscrizioneAnnoAction, updateIscrizioneAnnoAction } from "@/app/actions/iscrizioni";
+import { BulkIscrizioneWizard } from "./BulkIscrizioneWizard";
 
 type Corso = { id: string; nome: string; ordine: number };
 type IscrittoOpt = { id: string; codiceNumerico: number; cognomeIscritto: string; nomeIscritto: string; classeScolastica: string; plessoScolastico: string; libroConsegnato: boolean; quotaVersata: string };
@@ -149,7 +150,10 @@ export function IscrizioniManager({
             <button type="button" onClick={clearFilters} className="rounded border border-blue-200 px-3 py-2 text-sm text-blue-900 hover:bg-blue-50">Cancella filtri</button>
           ) : null}
         </div>
-        <button onClick={openModal} className="rounded bg-blue-900 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800">Aggiungi iscritto</button>
+        <div className="flex flex-wrap gap-2">
+          <BulkIscrizioneWizard />
+          <button onClick={openModal} className="rounded bg-blue-900 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800">Aggiungi iscritto</button>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded border border-blue-100 bg-white">

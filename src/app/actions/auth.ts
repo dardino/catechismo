@@ -31,28 +31,38 @@ export async function loginAction(_prevState: { error?: string } | undefined, fo
   try {
     await ensureDefaultAdmin();
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { error: `Database non pronto: ${msg}` };
+    console.error("Login bootstrap error:", e);
+    return { error: "Servizio non disponibile. Verifica la configurazione e l'inizializzazione del database." };
   }
 
-  const db = await getDb();
-  const rows = await db.select().from(users).where(eq(users.username, username)).limit(1);
-  const user = rows[0];
-  if (!user || !verifyPassword(password, user.passwordHash)) {
-    return { error: "Credenziali non valide" };
+  try {
+    const db = await getDb();
+    const rows = await db.select().from(users).where(eq(users.username, username)).limit(1);
+    const user = rows[0];
+    if (!user || !verifyPassword(password, user.passwordHash)) {
+      return { error: "Credenziali non valide" };
+    }
+
+    await setSessionCookie({
+      id: user.id,
+      username: user.username,
+      role: user.role as "admin" | "standard" | "viewer",
+      mustChangePassword: user.mustChangePassword,
+    });
+
+    if (user.mustChangePassword) {
+      redirect("/cambia-password");
+    }
+    redirect(next.startsWith("/") && !next.startsWith("/login") ? next : "/iscritti");
+  } catch (e) {
+    // redirect() throws a special NEXT_REDIRECT error; rethrow it
+    if (e && typeof e === "object" && "digest" in e && String((e as { digest?: string }).digest).startsWith("NEXT_REDIRECT")) {
+      throw e;
+    }
+    console.error("Login error:", e);
+    return { error: "Servizio non disponibile. Riprova più tardi." };
   }
 
-  await setSessionCookie({
-    id: user.id,
-    username: user.username,
-    role: user.role as "admin" | "standard" | "viewer",
-    mustChangePassword: user.mustChangePassword,
-  });
-
-  if (user.mustChangePassword) {
-    redirect("/cambia-password");
-  }
-  redirect(next.startsWith("/") && !next.startsWith("/login") ? next : "/iscritti");
 }
 
 export async function logoutAction() {
@@ -94,4 +104,3 @@ export async function changePasswordAction(_prevState: { error?: string; ok?: bo
 
   redirect("/iscritti");
 }
-
