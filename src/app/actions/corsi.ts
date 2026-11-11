@@ -2,7 +2,7 @@
 
 import { getDb } from "@/lib/db/client";
 import { corsi } from "@/lib/db/schema";
-import { requireAuth } from "@/lib/auth/session";
+import { requireAdmin } from "@/lib/auth/session";
 import { asc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -22,7 +22,7 @@ export async function ensureDefaultCorsi() {
 }
 
 export async function listCorsi() {
-  await requireAuth();
+  await requireAdmin();
   await ensureDefaultCorsi();
   const db = await getDb();
   return db.select().from(corsi).orderBy(asc(corsi.ordine), asc(corsi.nome));
@@ -31,7 +31,7 @@ export async function listCorsi() {
 export type CorsoActionState = { error?: string; fieldErrors?: Record<string, string[]> };
 
 export async function createCorsoAction(_prev: CorsoActionState, formData: FormData): Promise<CorsoActionState> {
-  await requireAuth();
+  await requireAdmin();
   const nome = String(formData.get("nome") || "").trim();
   const ordine = Number(formData.get("ordine") || 0);
   if (!nome) return { fieldErrors: { nome: ["Campo obbligatorio"] } };
@@ -49,7 +49,7 @@ export async function createCorsoAction(_prev: CorsoActionState, formData: FormD
 }
 
 export async function updateCorsoAction(id: string, _prev: CorsoActionState, formData: FormData): Promise<CorsoActionState> {
-  await requireAuth();
+  await requireAdmin();
   const nome = String(formData.get("nome") || "").trim();
   const ordine = Number(formData.get("ordine") || 0);
   if (!nome) return { fieldErrors: { nome: ["Campo obbligatorio"] } };
@@ -67,7 +67,7 @@ export async function updateCorsoAction(id: string, _prev: CorsoActionState, for
 }
 
 export async function deleteCorsoAction(id: string) {
-  await requireAuth();
+  await requireAdmin();
   const db = await getDb();
   try {
     await db.delete(corsi).where(eq(corsi.id, id));

@@ -2,7 +2,7 @@
 
 import { getDb } from "@/lib/db/client";
 import { appuntamenti, corsi } from "@/lib/db/schema";
-import { requireAuth } from "@/lib/auth/session";
+import { requireUser, requireWrite } from "@/lib/auth/session";
 import { and, asc, desc, eq, type SQL } from "drizzle-orm";
 import { getAnnoScolasticoCorrente } from "@/lib/anno-scolastico";
 import { revalidatePath } from "next/cache";
@@ -38,7 +38,7 @@ function validate(input: { data: string; ora: string; oraFine: string; anni: str
 }
 
 export async function getAppuntamentiFilterOptions() {
-  await requireAuth();
+  await requireUser();
   await ensureDefaultCorsi();
   const db = await getDb();
   const [corsiRows, anniRows] = await Promise.all([
@@ -51,7 +51,7 @@ export async function getAppuntamentiFilterOptions() {
 }
 
 export async function listAppuntamenti(filters?: { anni?: string; corsoId?: string }) {
-  await requireAuth();
+  await requireUser();
   const db = await getDb();
   const conds: SQL[] = [];
   if (filters?.anni) conds.push(eq(appuntamenti.anni, filters.anni));
@@ -75,14 +75,14 @@ export async function listAppuntamenti(filters?: { anni?: string; corsoId?: stri
 }
 
 export async function getAppuntamento(id: string) {
-  await requireAuth();
+  await requireUser();
   const db = await getDb();
   const rows = await db.select().from(appuntamenti).where(eq(appuntamenti.id, id)).limit(1);
   return rows[0] ?? null;
 }
 
 export async function getUltimoAppuntamento() {
-  await requireAuth();
+  await requireUser();
   const db = await getDb();
   const rows = await db
     .select()
@@ -93,7 +93,7 @@ export async function getUltimoAppuntamento() {
 }
 
 export async function getAppuntamentoFormData() {
-  await requireAuth();
+  await requireUser();
   await ensureDefaultCorsi();
   const db = await getDb();
   const [corsiRows, ultimo] = await Promise.all([
@@ -108,7 +108,7 @@ export async function getAppuntamentoFormData() {
 }
 
 export async function createAppuntamentoAction(_prev: AppuntamentoActionState, formData: FormData): Promise<AppuntamentoActionState> {
-  await requireAuth();
+  await requireWrite();
   const v = validate(parse(formData));
   if ("fieldErrors" in v) return v;
   const db = await getDb();
@@ -119,7 +119,7 @@ export async function createAppuntamentoAction(_prev: AppuntamentoActionState, f
 }
 
 export async function updateAppuntamentoAction(id: string, _prev: AppuntamentoActionState, formData: FormData): Promise<AppuntamentoActionState> {
-  await requireAuth();
+  await requireWrite();
   const v = validate(parse(formData));
   if ("fieldErrors" in v) return v;
   const db = await getDb();
@@ -131,7 +131,7 @@ export async function updateAppuntamentoAction(id: string, _prev: AppuntamentoAc
 }
 
 export async function deleteAppuntamentoAction(id: string) {
-  await requireAuth();
+  await requireWrite();
   const db = await getDb();
   await db.delete(appuntamenti).where(eq(appuntamenti.id, id));
   revalidatePath("/appuntamenti");

@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { randomBytes, scryptSync } from "node:crypto";
 import type { Db } from "./client";
 
 function getAnnoScolasticoCorrente(date = new Date()) {
@@ -6,6 +7,12 @@ function getAnnoScolasticoCorrente(date = new Date()) {
   const m = date.getUTCMonth() + 1;
   const start = m >= 9 ? y : y - 1;
   return `${start}-${start + 1}`;
+}
+
+function hashPassword(password: string): string {
+  const salt = randomBytes(16).toString("hex");
+  const hash = scryptSync(password, salt, 64).toString("hex");
+  return `scrypt:${salt}:${hash}`;
 }
 
 export async function runPreMigrations(db: Db) {
@@ -160,6 +167,37 @@ export async function runPreMigrations(db: Db) {
             FOREIGN KEY (preferenza_insegnante_id) REFERENCES insegnanti(id) ON DELETE SET NULL;
         END IF;
       END $$;
+    `);
+  }
+
+  // Users (auth/roles) and default Admin
+  await db.execute(sql`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
+        CREATE TYPE user_role AS ENUM ('admin', 'standard', 'viewer');
+      END IF;
+    END $$;
+  `);
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS users (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      username text NOT NULL UNIQUE,
+      password_hash text NOT NULL,
+      role user_role NOT NULL DEFAULT 'standard',
+      must_change_password boolean NOT NULL DEFAULT true,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password boolean NOT NULL DEFAULT true`);
+  const adminExists = await db.execute(sql`SELECT 1 AS ok FROM users WHERE username = 'Admin' LIMIT 1`);
+  const adminRows = (adminExists as unknown as { rows?: unknown[] }).rows ?? (adminExists as unknown as unknown[]);
+  if ((adminRows as unknown[]).length === 0) {
+    const pwd = hashPassword("admin");
+    await db.execute(sql`
+      INSERT INTO users (username, password_hash, role, must_change_password)
+      VALUES ('Admin', ${pwd}, 'admin', true)
+      ON CONFLICT (username) DO NOTHING
     `);
   }
 }

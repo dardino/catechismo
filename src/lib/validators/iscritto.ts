@@ -45,12 +45,40 @@ const dataNascitaSchema = z
   .transform((val) => parseDataNascita(val));
 
 function parseQuota(value: unknown): string {
-  if (typeof value === "number") return value.toFixed(2);
+  if (typeof value === "number") {
+    if (!Number.isFinite(value) || value < 0) throw new Error("Quota non valida");
+    return value.toFixed(2);
+  }
   if (typeof value !== "string") throw new Error("Quota non valida");
-  const normalized = value.replace(/[€\s]/g, "").replace(/\./g, "").replace(",", ".");
-  // allow simple decimals
-  if (!/^-?\d+(\.\d{1,2})?$/.test(normalized)) throw new Error("Quota non valida");
-  const n = Number(normalized);
+  let s = value.replace(/[€\s]/g, "").trim();
+  if (s === "") throw new Error("Quota non valida");
+
+  const hasComma = s.includes(",");
+  const hasDot = s.includes(".");
+
+  if (hasComma && hasDot) {
+    // IT format: dot thousands, comma decimal (e.g. 2.000,00)
+    s = s.replace(/\./g, "").replace(",", ".");
+  } else if (hasComma) {
+    // comma as decimal separator (e.g. 20,00)
+    s = s.replace(/,/g, ".");
+  } else if (hasDot) {
+    // dot as decimal separator (e.g. 20.00) or thousands-only groups
+    const parts = s.split(".");
+    if (parts.length > 2) {
+      s = parts.join("");
+    } else {
+      const decimals = parts[1] ?? "";
+      if (decimals.length > 2) {
+        // likely thousands separators (e.g. 2.000)
+        s = parts.join("");
+      }
+      // else keep dot as decimal
+    }
+  }
+
+  if (!/^-?\d+(\.\d{1,2})?$/.test(s)) throw new Error("Quota non valida");
+  const n = Number(s);
   if (!Number.isFinite(n) || n < 0) throw new Error("Quota non valida");
   return n.toFixed(2);
 }

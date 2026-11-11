@@ -3,13 +3,13 @@
 import { getDb } from "@/lib/db/client";
 import { iscritti } from "@/lib/db/schema";
 import { iscrittoSchema, type IscrittoInput } from "@/lib/validators/iscritto";
-import { requireAuth } from "@/lib/auth/session";
+import { requireUser, requireWrite } from "@/lib/auth/session";
 import { desc, eq, ilike, max, or, type SQL } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function listIscritti(query?: string) {
-  await requireAuth();
+  await requireUser();
   const db = await getDb();
   const q = query?.trim();
   let where: SQL | undefined;
@@ -30,14 +30,14 @@ export async function listIscritti(query?: string) {
 }
 
 export async function getIscritto(id: string) {
-  await requireAuth();
+  await requireUser();
   const db = await getDb();
   const rows = await db.select().from(iscritti).where(eq(iscritti.id, id)).limit(1);
   return rows[0] ?? null;
 }
 
 export async function getNextCodiceNumerico() {
-  await requireAuth();
+  await requireUser();
   const db = await getDb();
   const result = await db.select({ value: max(iscritti.codiceNumerico) }).from(iscritti);
   const current = result[0]?.value ?? 0;
@@ -97,7 +97,7 @@ export async function createIscrittoAction(
   _prev: IscrittoActionState,
   formData: FormData,
 ): Promise<IscrittoActionState> {
-  await requireAuth();
+  await requireWrite();
   const parsed = iscrittoSchema.safeParse(parseFormData(formData));
   if (!parsed.success) {
     return { fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]> };
@@ -121,7 +121,7 @@ export async function updateIscrittoAction(
   _prev: IscrittoActionState,
   formData: FormData,
 ): Promise<IscrittoActionState> {
-  await requireAuth();
+  await requireWrite();
   const parsed = iscrittoSchema.safeParse(parseFormData(formData));
   if (!parsed.success) {
     return { fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]> };
@@ -145,7 +145,7 @@ export async function updateIscrittoAction(
 }
 
 export async function deleteIscrittoAction(id: string) {
-  await requireAuth();
+  await requireWrite();
   const db = await getDb();
   await db.delete(iscritti).where(eq(iscritti.id, id));
   revalidatePath("/iscritti");
@@ -155,7 +155,7 @@ export async function deleteIscrittoAction(id: string) {
 }
 
 export async function toggleIscrittoNascostoAction(id: string, nascosto: boolean) {
-  await requireAuth();
+  await requireWrite();
   const db = await getDb();
   await db.update(iscritti).set({ nascosto, updatedAt: new Date() }).where(eq(iscritti.id, id));
   revalidatePath("/iscritti");
@@ -224,7 +224,7 @@ function parseList(v: string | undefined): string[] {
 }
 
 export async function importIscrittiFromCsvAction(formData: FormData): Promise<ImportIscrittiResult> {
-  await requireAuth();
+  await requireWrite();
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     return { imported: 0, updated: 0, errors: ["Seleziona un file CSV valido."] };

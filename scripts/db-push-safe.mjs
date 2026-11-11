@@ -1,6 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { randomBytes, scryptSync } from "node:crypto";
+
+function hashPassword(password) {
+  const salt = randomBytes(16).toString("hex");
+  const hash = scryptSync(password, salt, 64).toString("hex");
+  return `scrypt:${salt}:${hash}`;
+}
 
 function readConfig() {
   const cfgPath = path.join(process.cwd(), ".data", "db-config.json");
@@ -123,6 +130,29 @@ async function preMigratePostgres(databaseUrl) {
         END IF;
       END $$;`);
     }
+
+    await client.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
+        CREATE TYPE user_role AS ENUM ('admin', 'standard', 'viewer');
+      END IF;
+    END $$;`);
+    await client.query(`CREATE TABLE IF NOT EXISTS users (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      username text NOT NULL UNIQUE,
+      password_hash text NOT NULL,
+      role user_role NOT NULL DEFAULT 'standard',
+      must_change_password boolean NOT NULL DEFAULT true,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )`);
+    await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password boolean NOT NULL DEFAULT true");
+    const { rows: adminRows } = await client.query("SELECT 1 AS ok FROM users WHERE username = 'Admin' LIMIT 1");
+    if (adminRows.length === 0) {
+      await client.query(
+        "INSERT INTO users (username, password_hash, role, must_change_password) VALUES ($1,$2,$3,$4) ON CONFLICT (username) DO NOTHING",
+        ["Admin", hashPassword("admin"), "admin", true],
+      );
+    }
   } finally {
     await client.end();
   }
@@ -220,6 +250,29 @@ async function preMigratePglite(dataDir) {
           ALTER TABLE iscrizioni_anni ADD CONSTRAINT iscrizioni_anni_preferenza_insegnante_id_fkey FOREIGN KEY (preferenza_insegnante_id) REFERENCES insegnanti(id) ON DELETE SET NULL;
         END IF;
       END $$;`);
+    }
+
+    await db.exec(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
+        CREATE TYPE user_role AS ENUM ('admin', 'standard', 'viewer');
+      END IF;
+    END $$;`);
+    await db.exec(`CREATE TABLE IF NOT EXISTS users (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      username text NOT NULL UNIQUE,
+      password_hash text NOT NULL,
+      role user_role NOT NULL DEFAULT 'standard',
+      must_change_password boolean NOT NULL DEFAULT true,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )`);
+    await db.exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password boolean NOT NULL DEFAULT true");
+    const adminRows = await db.query("SELECT 1 AS ok FROM users WHERE username = 'Admin' LIMIT 1");
+    if (adminRows.rows.length === 0) {
+      await db.query(
+        "INSERT INTO users (username, password_hash, role, must_change_password) VALUES ($1,$2,$3,$4) ON CONFLICT (username) DO NOTHING",
+        ["Admin", hashPassword("admin"), "admin", true],
+      );
     }
   } finally {
     await db.close();

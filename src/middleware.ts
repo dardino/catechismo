@@ -4,20 +4,21 @@ import type { NextRequest } from "next/server";
 const COOKIE_NAME = "catechismo_session";
 
 function verifyTokenEdge(token: string | undefined | null, secret: string | undefined) {
-  // Edge-safe simple check: token must exist and have payload.sig shape.
-  // Full HMAC verification happens in Node server helpers; middleware is a gate.
+  // Edge-safe simple gate: token must exist and have payload.sig shape.
+  // Full HMAC verification happens in Node server helpers.
   if (!token || !secret) return false;
   const idx = token.lastIndexOf(".");
   if (idx <= 0) return false;
   const payload = token.slice(0, idx);
   const sig = token.slice(idx + 1);
-  return payload.startsWith("admin.") && sig.length === 64;
+  return payload.length > 0 && /^[a-f0-9]{64}$/i.test(sig);
 }
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (
     pathname.startsWith("/login") ||
+    pathname.startsWith("/cambia-password") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     pathname === "/api/health"

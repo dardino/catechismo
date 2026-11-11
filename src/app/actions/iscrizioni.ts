@@ -2,14 +2,14 @@
 
 import { getDb } from "@/lib/db/client";
 import { corsi, insegnanti, iscritti, iscrizioniAnni } from "@/lib/db/schema";
-import { requireAuth } from "@/lib/auth/session";
+import { requireUser, requireWrite } from "@/lib/auth/session";
 import { getAnnoScolasticoCorrente } from "@/lib/anno-scolastico";
 import { and, asc, desc, eq, type SQL } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { ensureDefaultCorsi } from "./corsi";
 
 export async function getIscrizioniPageData(filters?: { anni?: string; corsoId?: string }) {
-  await requireAuth();
+  await requireUser();
   await ensureDefaultCorsi();
   const db = await getDb();
   const whereParts: SQL[] = [];
@@ -80,7 +80,7 @@ function parseQuota(v: string) {
 }
 
 export async function createIscrizioneAnnoAction(_prev: IscrizioneActionState, formData: FormData): Promise<IscrizioneActionState> {
-  await requireAuth();
+  await requireWrite();
   const iscrittoId = String(formData.get("iscrittoId") || "");
   const dataIscrizione = String(formData.get("dataIscrizione") || "").trim();
   const anni = String(formData.get("anni") || "").trim();
@@ -118,7 +118,7 @@ export async function createIscrizioneAnnoAction(_prev: IscrizioneActionState, f
 }
 
 export async function updateIscrizioneAnnoAction(id: string, _prev: IscrizioneActionState, formData: FormData): Promise<IscrizioneActionState> {
-  await requireAuth();
+  await requireWrite();
   const iscrittoId = String(formData.get("iscrittoId") || "");
   const dataIscrizione = String(formData.get("dataIscrizione") || "").trim();
   const anni = String(formData.get("anni") || "").trim();
@@ -159,7 +159,7 @@ export async function updateIscrizioneAnnoAction(id: string, _prev: IscrizioneAc
 }
 
 export async function deleteIscrizioneAnnoAction(id: string) {
-  await requireAuth();
+  await requireWrite();
   const db = await getDb();
   await db.delete(iscrizioniAnni).where(eq(iscrizioniAnni.id, id));
   revalidatePath("/iscrizioni");

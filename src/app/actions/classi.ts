@@ -2,14 +2,14 @@
 
 import { getDb } from "@/lib/db/client";
 import { classi, corsi, insegnanti, iscritti, iscrizioniAnni } from "@/lib/db/schema";
-import { requireAuth } from "@/lib/auth/session";
+import { requireUser, requireWrite } from "@/lib/auth/session";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { ensureDefaultCorsi } from "./corsi";
 import { getAnnoScolasticoCorrente } from "@/lib/anno-scolastico";
 
 export async function getClassiFilterOptions() {
-  await requireAuth();
+  await requireUser();
   await ensureDefaultCorsi();
   const db = await getDb();
   const [corsiRows, anniRows] = await Promise.all([
@@ -22,7 +22,7 @@ export async function getClassiFilterOptions() {
 }
 
 export async function listClassi(filters?: { anni?: string; corsoId?: string }) {
-  await requireAuth();
+  await requireUser();
   const db = await getDb();
   const anni = filters?.anni || "";
   const corsoId = filters?.corsoId || "";
@@ -47,7 +47,7 @@ export async function listClassi(filters?: { anni?: string; corsoId?: string }) 
 }
 
 export async function listIscrittiOptionsForAnnoCorso(anni: string, corsoId: string) {
-  await requireAuth();
+  await requireUser();
   if (!anni || !corsoId) return [];
   const db = await getDb();
   return db
@@ -69,7 +69,7 @@ export async function saveClassiBulkAction(
   corsoId: string,
   assignments: { iscrittoId: string; insegnanteId: string }[],
 ) {
-  await requireAuth();
+  await requireWrite();
   if (!anni || !corsoId) return { error: "Seleziona anno e corso." };
   const db = await getDb();
   try {
@@ -97,13 +97,13 @@ export async function saveClassiBulkAction(
 }
 
 export async function listInsegnantiOptions() {
-  await requireAuth();
+  await requireUser();
   const db = await getDb();
   return db.select({ id: insegnanti.id, nome: insegnanti.nome }).from(insegnanti).orderBy(asc(insegnanti.nome));
 }
 
 export async function createClasseAction(_prev: { error?: string; ok?: boolean } | undefined, formData: FormData) {
-  await requireAuth();
+  await requireWrite();
   const anni = String(formData.get("anni") || "").trim();
   const corsoId = String(formData.get("corsoId") || "").trim();
   const iscrittoId = String(formData.get("iscrittoId") || "");
@@ -123,7 +123,7 @@ export async function createClasseAction(_prev: { error?: string; ok?: boolean }
 }
 
 export async function deleteClasseAction(id: string) {
-  await requireAuth();
+  await requireWrite();
   const db = await getDb();
   await db.delete(classi).where(eq(classi.id, id));
   revalidatePath("/classi");

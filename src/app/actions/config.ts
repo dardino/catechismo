@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAuth } from "@/lib/auth/session";
+import { requireAdmin } from "@/lib/auth/session";
 import { getDb, resetDb } from "@/lib/db/client";
 import { readDbConfig, writeDbConfig, type DbConfig } from "@/lib/db/config";
 import { runPreMigrations } from "@/lib/db/migrate";
@@ -11,7 +11,7 @@ import { promisify } from "node:util";
 const execAsync = promisify(exec);
 
 export async function getDbConfigAction(): Promise<DbConfig> {
-  await requireAuth();
+  await requireAdmin();
   return readDbConfig();
 }
 
@@ -19,7 +19,7 @@ export async function saveDbConfigAction(
   _prev: { ok?: boolean; error?: string } | undefined,
   formData: FormData,
 ) {
-  await requireAuth();
+  await requireAdmin();
   const mode = formData.get("mode") === "postgres" ? "postgres" : "pglite";
   const pgliteDataDir = String(formData.get("pgliteDataDir") || ".data/pglite").trim() || ".data/pglite";
   const databaseUrl = String(formData.get("databaseUrl") || "").trim();
@@ -33,7 +33,7 @@ export async function saveDbConfigAction(
 }
 
 export async function testDbConnectionAction() {
-  await requireAuth();
+  await requireAdmin();
   try {
     await resetDb();
     const db = await getDb();
@@ -47,7 +47,7 @@ export async function testDbConnectionAction() {
 }
 
 export async function initDbAction() {
-  await requireAuth();
+  await requireAdmin();
   const config = readDbConfig();
   const env: NodeJS.ProcessEnv = { ...process.env };
   if (config.mode === "pglite") {

@@ -2,7 +2,7 @@
 
 import { getDb } from "@/lib/db/client";
 import { insegnanti } from "@/lib/db/schema";
-import { requireAuth } from "@/lib/auth/session";
+import { requireUser, requireWrite } from "@/lib/auth/session";
 import { asc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -22,20 +22,20 @@ function validate(input: { nome: string }) {
 }
 
 export async function listInsegnanti() {
-  await requireAuth();
+  await requireUser();
   const db = await getDb();
   return db.select().from(insegnanti).orderBy(asc(insegnanti.nome));
 }
 
 export async function getInsegnante(id: string) {
-  await requireAuth();
+  await requireUser();
   const db = await getDb();
   const rows = await db.select().from(insegnanti).where(eq(insegnanti.id, id)).limit(1);
   return rows[0] ?? null;
 }
 
 export async function createInsegnanteAction(_prev: InsegnanteActionState, formData: FormData): Promise<InsegnanteActionState> {
-  await requireAuth();
+  await requireWrite();
   const v = validate(parse(formData));
   if ("fieldErrors" in v) return v;
   const db = await getDb();
@@ -46,7 +46,7 @@ export async function createInsegnanteAction(_prev: InsegnanteActionState, formD
 }
 
 export async function updateInsegnanteAction(id: string, _prev: InsegnanteActionState, formData: FormData): Promise<InsegnanteActionState> {
-  await requireAuth();
+  await requireWrite();
   const v = validate(parse(formData));
   if ("fieldErrors" in v) return v;
   const db = await getDb();
@@ -58,7 +58,7 @@ export async function updateInsegnanteAction(id: string, _prev: InsegnanteAction
 }
 
 export async function deleteInsegnanteAction(id: string) {
-  await requireAuth();
+  await requireWrite();
   const db = await getDb();
   await db.delete(insegnanti).where(eq(insegnanti.id, id));
   revalidatePath("/insegnanti");

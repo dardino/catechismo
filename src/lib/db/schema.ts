@@ -13,6 +13,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 export const metodoPagamentoEnum = pgEnum("metodo_pagamento", ["POS", "CONTANTI"]);
+export const userRoleEnum = pgEnum("user_role", ["admin", "standard", "viewer"]);
 
 export const iscritti = pgTable("iscritti", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -121,6 +122,19 @@ export const presenze = pgTable(
 
 export type Presenza = typeof presenze.$inferSelect;
 export type NewPresenza = typeof presenze.$inferInsert;
+
+export const users = pgTable("users", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  username: text("username").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  role: userRoleEnum("role").notNull().default("standard"),
+  mustChangePassword: boolean("must_change_password").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
 
 export const corsi = pgTable("corsi", {
   id: uuid("id").defaultRandom().primaryKey(),

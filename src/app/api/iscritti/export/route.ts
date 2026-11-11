@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db/client";
 import { iscritti } from "@/lib/db/schema";
-import { requireAuth } from "@/lib/auth/session";
+import { requireUser } from "@/lib/auth/session";
 import { asc } from "drizzle-orm";
 
 export const runtime = "nodejs";
@@ -14,7 +14,7 @@ function csvEscape(value: unknown) {
 }
 
 export async function GET() {
-  await requireAuth();
+  await requireUser();
   const db = await getDb();
   const rows = await db.select().from(iscritti).orderBy(asc(iscritti.cognomeIscritto), asc(iscritti.nomeIscritto));
 

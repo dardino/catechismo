@@ -2,14 +2,14 @@
 
 import { getDb } from "@/lib/db/client";
 import { appuntamenti, classi, corsi, insegnanti, iscritti, iscrizioniAnni, presenze } from "@/lib/db/schema";
-import { requireAuth } from "@/lib/auth/session";
+import { requireUser, requireWrite } from "@/lib/auth/session";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { ensureDefaultCorsi } from "./corsi";
 import { getAnnoScolasticoCorrente } from "@/lib/anno-scolastico";
 
 export async function getPresenzeFilterOptions() {
-  await requireAuth();
+  await requireUser();
   await ensureDefaultCorsi();
   const db = await getDb();
   const [corsiRows, anniRows] = await Promise.all([
@@ -22,7 +22,7 @@ export async function getPresenzeFilterOptions() {
 }
 
 export async function listAppuntamentiForCorsoAnno(anni: string, corsoId: string) {
-  await requireAuth();
+  await requireUser();
   if (!anni || !corsoId) return [];
   const db = await getDb();
   return db
@@ -47,7 +47,7 @@ async function getEnrolledIscritti(db: Awaited<ReturnType<typeof getDb>>, anni: 
 }
 
 export async function getPresenzePerAppuntamento(appuntamentoId: string) {
-  await requireAuth();
+  await requireUser();
   const db = await getDb();
   const appRows = await db.select().from(appuntamenti).where(eq(appuntamenti.id, appuntamentoId)).limit(1);
   const app = appRows[0];
@@ -59,7 +59,7 @@ export async function getPresenzePerAppuntamento(appuntamentoId: string) {
 }
 
 export async function savePresenzeAction(appuntamentoId: string, presentiIds: string[]) {
-  await requireAuth();
+  await requireWrite();
   const db = await getDb();
   const appRows = await db.select().from(appuntamenti).where(eq(appuntamenti.id, appuntamentoId)).limit(1);
   const app = appRows[0];
@@ -77,7 +77,7 @@ export async function savePresenzeAction(appuntamentoId: string, presentiIds: st
 }
 
 export async function getReportPresenze(filters?: { anni?: string; corsoId?: string }) {
-  await requireAuth();
+  await requireUser();
   const db = await getDb();
   const anni = filters?.anni || "";
   const corsoId = filters?.corsoId || "";
