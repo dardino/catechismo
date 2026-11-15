@@ -28,7 +28,7 @@ export default function LoginPage({
         <h1 className="mb-1 text-xl font-semibold">Accesso</h1>
         <p className="mb-4 text-sm text-blue-700">Inserisci le credenziali per continuare.</p>
         <form action={formAction} className="space-y-4">
-          <input type="hidden" name="next" value={searchParams.next || "/iscritti"} />
+          <input type="hidden" name="next" value={searchParams.next || "/dashboard"} />
           <div>
             <label className="mb-1 block text-sm font-medium">Username</label>
             <input name="username" type="text" required className="w-full rounded border px-3 py-2" autoFocus autoComplete="username" />

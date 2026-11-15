@@ -12,10 +12,11 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     <div className="min-h-screen">
       <header className="bg-blue-950 text-white shadow">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-3">
-          <Link href="/iscritti" className="text-lg font-semibold text-white">
+          <Link href="/dashboard" className="text-lg font-semibold text-white">
             Catechismo
           </Link>
           <nav className="flex flex-wrap items-center gap-2 text-sm">
+            <Link href="/dashboard" className="rounded px-2 py-1 hover:bg-blue-900">Dashboard</Link>
             <Link href="/iscrizioni" className="rounded px-2 py-1 hover:bg-blue-900">Iscrizioni</Link>
             <Link href="/appuntamenti" className="rounded px-2 py-1 hover:bg-blue-900">Appuntamenti</Link>
             <Link href="/insegnanti" className="rounded px-2 py-1 hover:bg-blue-900">Insegnanti</Link>

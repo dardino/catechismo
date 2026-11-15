@@ -14,6 +14,7 @@ import {
 
 export const metodoPagamentoEnum = pgEnum("metodo_pagamento", ["POS", "CONTANTI"]);
 export const userRoleEnum = pgEnum("user_role", ["admin", "standard", "viewer"]);
+export const sessoEnum = pgEnum("sesso", ["M", "F"]);
 
 export const iscritti = pgTable("iscritti", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -28,6 +29,7 @@ export const iscritti = pgTable("iscritti", {
   codiceNumerico: integer("codice_numerico").notNull().unique(),
   cognomeIscritto: text("cognome_iscritto").notNull(),
   nomeIscritto: text("nome_iscritto").notNull(),
+  sesso: sessoEnum("sesso").notNull(),
   natoA: text("nato_a").notNull(),
   dataNascita: date("data_nascita").notNull(),
   residenteA: text("residente_a").notNull(),

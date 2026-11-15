@@ -128,7 +128,7 @@ export function PresenzeManager({
             >
               {pending ? "Salvataggio..." : "Salva presenze"}
             </button>
-            <a href={reportHref} className="rounded border border-blue-200 px-4 py-2 text-blue-900 hover:bg-blue-50">Report presenze</a>
+            <a href={reportHref} className="rounded border border-blue-200 px-4 py-2 text-blue-900 hover:bg-blue-50">Registro presenze</a>
             {saved ? <span className="text-sm text-green-700">Salvato.</span> : null}
           </div>
 

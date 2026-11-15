@@ -22,7 +22,7 @@ export async function ensureDefaultAdmin() {
 export async function loginAction(_prevState: { error?: string } | undefined, formData: FormData) {
   const username = String(formData.get("username") || "").trim();
   const password = String(formData.get("password") || "");
-  const next = String(formData.get("next") || "/iscritti");
+  const next = String(formData.get("next") || "/dashboard");
   if (!process.env.SESSION_SECRET) {
     return { error: "Configurazione auth mancante (SESSION_SECRET)" };
   }
@@ -53,7 +53,7 @@ export async function loginAction(_prevState: { error?: string } | undefined, fo
     if (user.mustChangePassword) {
       redirect("/cambia-password");
     }
-    redirect(next.startsWith("/") && !next.startsWith("/login") ? next : "/iscritti");
+    redirect(next.startsWith("/") && !next.startsWith("/login") ? next : "/dashboard");
   } catch (e) {
     // redirect() throws a special NEXT_REDIRECT error; rethrow it
     if (e && typeof e === "object" && "digest" in e && String((e as { digest?: string }).digest).startsWith("NEXT_REDIRECT")) {
@@ -102,5 +102,5 @@ export async function changePasswordAction(_prevState: { error?: string; ok?: bo
     mustChangePassword: false,
   });
 
-  redirect("/iscritti");
+  redirect("/dashboard");
 }

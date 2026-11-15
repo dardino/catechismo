@@ -31,7 +31,7 @@ export default async function PresenzeReportPage({
   return (
     <div className="space-y-4 print:space-y-2 print-report-root">
       <div className="flex items-center justify-between no-print">
-        <h1 className="text-2xl font-semibold">Report presenze</h1>
+        <h1 className="text-2xl font-semibold">Registro presenze</h1>
         <div className="flex gap-2">
           <a href={backHref} className="rounded border border-blue-200 px-3 py-1.5 text-sm text-blue-900 hover:bg-blue-50">Torna alle presenze</a>
         </div>
@@ -47,10 +47,10 @@ export default async function PresenzeReportPage({
         <PrintButton />
       </div>
 
-      <h1 className="hidden print:block text-base font-semibold">Report presenze{selectedAnni ? ` - ${selectedAnni}` : ""}</h1>
+      <h1 className="hidden print:block text-base font-semibold">Registro presenze{selectedAnni ? ` - ${selectedAnni}` : ""}</h1>
 
       {!selectedAnni || !selectedCorsoId ? (
-        <div className="rounded border border-blue-100 bg-white p-6 text-blue-700">Seleziona anno e corso per visualizzare il report.</div>
+        <div className="rounded border border-blue-100 bg-white p-6 text-blue-700">Seleziona anno e corso per visualizzare il registro.</div>
       ) : iscritti.length === 0 || appuntamenti.length === 0 ? (
         <div className="rounded border border-blue-100 bg-white p-6 text-blue-700">
           Nessun dato per il filtro selezionato (servono iscrizioni e appuntamenti per anno/corso).
@@ -103,3 +103,4 @@ export default async function PresenzeReportPage({
     </div>
   );
 }
+

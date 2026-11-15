@@ -34,7 +34,7 @@ export function IscrittiTable({ rows }: { rows: Iscritto[] }) {
             <tr key={r.id} className={`border-t align-top ${r.nascosto ? "opacity-50" : ""}`}>
               <td className="px-3 py-2 font-medium text-blue-900">{r.codiceNumerico}</td>
               <td className="px-3 py-2">
-                <div className="font-medium">{r.cognomeIscritto} {r.nomeIscritto}</div>
+                <div className="font-medium">{r.cognomeIscritto} {r.nomeIscritto} <span className="ml-1 text-xs font-normal text-blue-700">({(r as { sesso?: string }).sesso === "F" ? "F" : "M"})</span></div>
                 <div className="text-xs text-blue-700">Consenso foto: {r.consensoFotoVideo ? "Sì" : "No"}</div>
               </td>
               <td className="px-3 py-2">{fmtDate(r.dataNascita as unknown as string)}<div className="text-xs text-blue-700">{r.natoA}</div></td>

@@ -19,7 +19,7 @@ export async function GET() {
   const rows = await db.select().from(iscritti).orderBy(asc(iscritti.cognomeIscritto), asc(iscritti.nomeIscritto));
 
   const headers = [
-    "codiceNumerico","cognomeIscritto","nomeIscritto","natoA","dataNascita","residenteA","indirizzoVia",
+    "codiceNumerico","cognomeIscritto","nomeIscritto","sesso","natoA","dataNascita","residenteA","indirizzoVia",
     "battezzato","parrocchiaBattesimo","cellulareGenitore","telefonoUrgenze","email","codiceFiscale",
     "consensoFotoVideo","classeScolastica","plessoScolastico","patologie","allergieIntolleranze","altro",
     "libroConsegnato","quotaVersata","metodoPagamento","nascosto",
@@ -28,7 +28,8 @@ export async function GET() {
   const lines = [headers.join(";")];
   for (const r of rows) {
     lines.push([
-      r.codiceNumerico, r.cognomeIscritto, r.nomeIscritto, r.natoA, r.dataNascita, r.residenteA, r.indirizzoVia,
+      r.codiceNumerico, r.cognomeIscritto, r.nomeIscritto, (r as { sesso?: string }).sesso || "",
+      r.natoA, r.dataNascita, r.residenteA, r.indirizzoVia,
       r.battezzato ? "SI" : "NO", r.parrocchiaBattesimo, r.cellulareGenitore, r.telefonoUrgenze, r.email, r.codiceFiscale || "",
       r.consensoFotoVideo ? "SI" : "NO", r.classeScolastica, r.plessoScolastico,
       (r.patologie || []).join("|"), (r.allergieIntolleranze || []).join("|"), r.altro || "",

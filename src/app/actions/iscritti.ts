@@ -66,6 +66,7 @@ function parseFormData(formData: FormData): IscrittoInput {
     nomeMadre: get("nomeMadre"),
     cognomeIscritto: get("cognomeIscritto"),
     nomeIscritto: get("nomeIscritto"),
+    sesso: get("sesso") as "M" | "F",
     natoA: get("natoA"),
     dataNascita: get("dataNascita"),
     residenteA: get("residenteA"),
@@ -223,6 +224,21 @@ function parseList(v: string | undefined): string[] {
   return s.split("|").map((x) => x.trim()).filter(Boolean);
 }
 
+function inferSesso(nomeIscritto: string, rawSesso?: string): "M" | "F" {
+  const s = String(rawSesso ?? "").trim().toUpperCase();
+  if (s === "M" || s === "MASCHIO") return "M";
+  if (s === "F" || s === "FEMMINA") return "F";
+  const nome = String(nomeIscritto || "").trim().toLowerCase();
+  const last = nome.slice(-1);
+  if (last === "a" || last === "à") return "F";
+  if (last === "o") return "M";
+  if (last === "e" || last === "è" || last === "é") {
+    if (["gabriele", "michele", "raffaele"].includes(nome)) return "M";
+    return "F";
+  }
+  return "M";
+}
+
 export async function importIscrittiFromCsvAction(formData: FormData): Promise<ImportIscrittiResult> {
   await requireWrite();
   const file = formData.get("file");
@@ -253,6 +269,7 @@ export async function importIscrittiFromCsvAction(formData: FormData): Promise<I
     const r = rows[n];
     const rowNum = n + 2; // header is 1
     try {
+      const nomeIscritto = get(r, "nomeIscritto");
       const raw: Record<string, unknown> = {
         codiceNumerico: get(r, "codiceNumerico"),
         cognomePadre: get(r, "cognomePadre"),
@@ -260,7 +277,8 @@ export async function importIscrittiFromCsvAction(formData: FormData): Promise<I
         cognomeMadre: get(r, "cognomeMadre"),
         nomeMadre: get(r, "nomeMadre"),
         cognomeIscritto: get(r, "cognomeIscritto"),
-        nomeIscritto: get(r, "nomeIscritto"),
+        nomeIscritto,
+        sesso: inferSesso(nomeIscritto, get(r, "sesso")),
         natoA: get(r, "natoA"),
         dataNascita: get(r, "dataNascita"),
         residenteA: get(r, "residenteA"),

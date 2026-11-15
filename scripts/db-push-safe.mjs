@@ -153,6 +153,32 @@ async function preMigratePostgres(databaseUrl) {
         ["Admin", hashPassword("admin"), "admin", true],
       );
     }
+
+    const { rows: hasIscritti } = await client.query("SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='iscritti' LIMIT 1");
+    if (hasIscritti.length) {
+      await client.query(`DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'sesso') THEN
+          CREATE TYPE sesso AS ENUM ('M', 'F');
+        END IF;
+      END $$;`);
+      const { rows: sessoCols } = await client.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='iscritti' AND column_name='sesso'");
+      if (sessoCols.length === 0) {
+        await client.query("ALTER TABLE iscritti ADD COLUMN sesso sesso");
+        await client.query(`
+          UPDATE iscritti SET sesso = (
+            CASE
+              WHEN lower(right(trim(nome_iscritto), 1)) = 'a' THEN 'F'
+              WHEN lower(right(trim(nome_iscritto), 1)) = 'o' THEN 'M'
+              WHEN lower(right(trim(nome_iscritto), 1)) = 'e' THEN
+                CASE WHEN lower(trim(nome_iscritto)) IN ('gabriele', 'michele', 'raffaele') THEN 'M' ELSE 'F' END
+              ELSE 'M'
+            END
+          )::sesso
+          WHERE sesso IS NULL
+        `);
+        await client.query("ALTER TABLE iscritti ALTER COLUMN sesso SET NOT NULL");
+      }
+    }
   } finally {
     await client.end();
   }
@@ -273,6 +299,32 @@ async function preMigratePglite(dataDir) {
         "INSERT INTO users (username, password_hash, role, must_change_password) VALUES ($1,$2,$3,$4) ON CONFLICT (username) DO NOTHING",
         ["Admin", hashPassword("admin"), "admin", true],
       );
+    }
+
+    const hasIscritti = await db.query("SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='iscritti' LIMIT 1");
+    if (hasIscritti.rows.length) {
+      await db.exec(`DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'sesso') THEN
+          CREATE TYPE sesso AS ENUM ('M', 'F');
+        END IF;
+      END $$;`);
+      const sessoCols = await db.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='iscritti' AND column_name='sesso'");
+      if (sessoCols.rows.length === 0) {
+        await db.exec("ALTER TABLE iscritti ADD COLUMN sesso sesso");
+        await db.exec(`
+          UPDATE iscritti SET sesso = (
+            CASE
+              WHEN lower(right(trim(nome_iscritto), 1)) = 'a' THEN 'F'
+              WHEN lower(right(trim(nome_iscritto), 1)) = 'o' THEN 'M'
+              WHEN lower(right(trim(nome_iscritto), 1)) = 'e' THEN
+                CASE WHEN lower(trim(nome_iscritto)) IN ('gabriele', 'michele', 'raffaele') THEN 'M' ELSE 'F' END
+              ELSE 'M'
+            END
+          )::sesso
+          WHERE sesso IS NULL
+        `);
+        await db.exec("ALTER TABLE iscritti ALTER COLUMN sesso SET NOT NULL");
+      }
     }
   } finally {
     await db.close();

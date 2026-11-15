@@ -78,10 +78,19 @@ export function IscrittoForm({
       <section className={section}>
         <h2 className="font-semibold">Dati iscritto</h2>
         <div className="grid gap-3">
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-4">
             <div><label className={label}>Codice numerico *</label><input name="codiceNumerico" type="number" min={1} step={1} defaultValue={defaultValues?.codiceNumerico ?? ""} className={input} required /><FieldError errors={fe.codiceNumerico} /></div>
             <div><label className={label}>Cognome iscritto *</label><input name="cognomeIscritto" defaultValue={defaultValues?.cognomeIscritto || ""} className={input} required /><FieldError errors={fe.cognomeIscritto} /></div>
             <div><label className={label}>Nome iscritto *</label><input name="nomeIscritto" defaultValue={defaultValues?.nomeIscritto || ""} className={input} required /><FieldError errors={fe.nomeIscritto} /></div>
+            <div>
+              <label className={label}>Sesso *</label>
+              <select name="sesso" defaultValue={(defaultValues as { sesso?: string } | undefined)?.sesso || ""} className={input} required>
+                <option value="">Seleziona...</option>
+                <option value="M">Maschio</option>
+                <option value="F">Femmina</option>
+              </select>
+              <FieldError errors={fe.sesso} />
+            </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div><label className={label}>Nato a (Comune) *</label><input name="natoA" defaultValue={defaultValues?.natoA || ""} className={input} required /><FieldError errors={fe.natoA} /></div>

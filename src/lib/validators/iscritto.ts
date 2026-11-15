@@ -113,6 +113,7 @@ export const iscrittoBaseSchema = z.object({
 
   cognomeIscritto: requiredString,
   nomeIscritto: requiredString,
+  sesso: z.enum(["M", "F"], { message: "Seleziona Maschio o Femmina" }),
   natoA: requiredString,
   dataNascita: dataNascitaSchema,
   residenteA: requiredString,

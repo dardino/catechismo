@@ -200,4 +200,40 @@ export async function runPreMigrations(db: Db) {
       ON CONFLICT (username) DO NOTHING
     `);
   }
+
+  // Sesso (M/F) per iscritti: aggiunta colonna e valorizzazione dati esistenti
+  const hasIscritti = await db.execute(sql`
+    SELECT 1 AS ok FROM information_schema.tables WHERE table_schema='public' AND table_name='iscritti' LIMIT 1
+  `);
+  const hasIscrittiRows = (hasIscritti as unknown as { rows?: unknown[] }).rows ?? (hasIscritti as unknown as unknown[]);
+  if ((hasIscrittiRows as unknown[]).length > 0) {
+    await db.execute(sql`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'sesso') THEN
+          CREATE TYPE sesso AS ENUM ('M', 'F');
+        END IF;
+      END $$;
+    `);
+    const sessoCol = await db.execute(sql`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='iscritti' AND column_name='sesso'
+    `);
+    const sessoCols = (sessoCol as unknown as { rows?: unknown[] }).rows ?? (sessoCol as unknown as unknown[]);
+    if ((sessoCols as unknown[]).length === 0) {
+      await db.execute(sql`ALTER TABLE iscritti ADD COLUMN sesso sesso`);
+      await db.execute(sql`
+        UPDATE iscritti SET sesso = (
+          CASE
+            WHEN lower(right(trim(nome_iscritto), 1)) = 'a' THEN 'F'
+            WHEN lower(right(trim(nome_iscritto), 1)) = 'o' THEN 'M'
+            WHEN lower(right(trim(nome_iscritto), 1)) = 'e' THEN
+              CASE WHEN lower(trim(nome_iscritto)) IN ('gabriele', 'michele', 'raffaele') THEN 'M' ELSE 'F' END
+            ELSE 'M'
+          END
+        )::sesso
+        WHERE sesso IS NULL
+      `);
+      await db.execute(sql`ALTER TABLE iscritti ALTER COLUMN sesso SET NOT NULL`);
+    }
+  }
 }
