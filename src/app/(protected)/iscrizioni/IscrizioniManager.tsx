@@ -16,6 +16,37 @@ function fmtDate(d: string) {
   return y && m && day ? `${day}/${m}/${y}` : d;
 }
 
+const PRINT_COLUMNS = [
+  { key: "cognome", label: "Cognome" },
+  { key: "nome", label: "Nome" },
+  { key: "codiceNumerico", label: "Codice" },
+  { key: "dataIscrizione", label: "Data iscrizione" },
+  { key: "anni", label: "Anno" },
+  { key: "corso", label: "Corso" },
+  { key: "classe", label: "Classe" },
+  { key: "plesso", label: "Plesso" },
+  { key: "libro", label: "Libro" },
+  { key: "quota", label: "Quota" },
+  { key: "preferenzaInsegnante", label: "Pref. insegnante" },
+] as const;
+type PrintColKey = (typeof PRINT_COLUMNS)[number]["key"];
+
+function getPrintCell(r: Row, key: PrintColKey) {
+  switch (key) {
+    case "cognome": return r.cognomeIscritto;
+    case "nome": return r.nomeIscritto;
+    case "codiceNumerico": return String(r.codiceNumerico);
+    case "dataIscrizione": return fmtDate(r.dataIscrizione);
+    case "anni": return r.anni;
+    case "corso": return r.corsoNome;
+    case "classe": return r.classe;
+    case "plesso": return r.plesso;
+    case "libro": return r.libro ? "Sì" : "No";
+    case "quota": return `€ ${String(r.quota).replace(".", ",")}`;
+    case "preferenzaInsegnante": return r.preferenzaInsegnanteNome || "-";
+  }
+}
+
 function todayIso() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -47,6 +78,12 @@ export function IscrizioniManager({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [printOpen, setPrintOpen] = useState(false);
+  const [printCols, setPrintCols] = useState<Record<PrintColKey, boolean>>(() => {
+    const init = {} as Record<PrintColKey, boolean>;
+    for (const c of PRINT_COLUMNS) init[c.key] = c.key === "cognome" || c.key === "nome";
+    return init;
+  });
   const [editRow, setEditRow] = useState<Row | null>(null);
   const [pending, startTransition] = useTransition();
   const [state, formAction] = useFormState(createIscrizioneAnnoAction, {});
@@ -128,6 +165,37 @@ export function IscrizioniManager({
     setOpen(true);
   }
 
+  function doPrint() {
+    const cols = PRINT_COLUMNS.filter((c) => printCols[c.key]);
+    if (cols.length === 0) {
+      alert("Seleziona almeno una colonna da stampare.");
+      return;
+    }
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const head = cols.map((c) => `<th>${esc(c.label)}</th>`).join("");
+    const body = initialRows.map((r) => `<tr>${cols.map((c) => `<td>${esc(getPrintCell(r, c.key))}</td>`).join("")}</tr>`).join("");
+    const title = "Iscrizioni";
+    const html = `<!doctype html><html><head><meta charset="utf-8"/><title>${title}</title>
+      <style>
+        body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px;color:#111}
+        h1{font-size:18px;margin:0 0 12px}
+        table{border-collapse:collapse;width:100%}
+        th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;font-size:12px}
+        th{background:#f3f4f6}
+        @media print{body{padding:0}}
+      </style></head><body>
+      <h1>${title}</h1>
+      <table><thead><tr>${head}</tr></thead><tbody>${body || `<tr><td colspan="${cols.length}">Nessuna iscrizione.</td></tr>`}</tbody></table>
+      <script>window.onload=()=>{window.print();};</script>
+    </body></html>`;
+    const w = window.open("", "_blank");
+    if (!w) { alert("Popup bloccato: consenti i popup per stampare."); return; }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    setPrintOpen(false);
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3 rounded border border-blue-100 bg-white p-4">
@@ -152,6 +220,7 @@ export function IscrizioniManager({
         </div>
         <div className="flex flex-wrap gap-2">
           <BulkIscrizioneWizard />
+          <button onClick={() => setPrintOpen(true)} className="rounded border border-blue-200 px-4 py-2 text-sm font-medium text-blue-900 hover:bg-blue-50">Stampa</button>
           <button onClick={openModal} className="rounded bg-blue-900 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800">Aggiungi iscritto</button>
         </div>
       </div>
@@ -208,6 +277,34 @@ export function IscrizioniManager({
           </tbody>
         </table>
       </div>
+
+      {printOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={(e) => { if (e.target === e.currentTarget) setPrintOpen(false); }}>
+          <div className="max-h-[90vh] w-full max-w-md overflow-auto rounded-lg bg-white p-4 shadow-lg">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Stampa iscrizioni</h2>
+              <button onClick={() => setPrintOpen(false)} className="text-blue-900"><span className="material-symbols-outlined">close</span></button>
+            </div>
+            <p className="mb-3 text-sm text-blue-700">Scegli le colonne da stampare (di default: nome e cognome). Verranno stampate le iscrizioni attualmente visualizzate.</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {PRINT_COLUMNS.map((c) => (
+                <label key={c.key} className="flex items-center gap-2 rounded border p-2">
+                  <input
+                    type="checkbox"
+                    checked={!!printCols[c.key]}
+                    onChange={(e) => setPrintCols((s) => ({ ...s, [c.key]: e.target.checked }))}
+                  />
+                  <span>{c.label}</span>
+                </label>
+              ))}
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button onClick={doPrint} className="rounded bg-blue-900 px-4 py-2 font-medium text-white hover:bg-blue-800">Stampa</button>
+              <button onClick={() => setPrintOpen(false)} className="rounded border border-blue-200 px-4 py-2 text-blue-900 hover:bg-blue-50">Annulla</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {open ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>

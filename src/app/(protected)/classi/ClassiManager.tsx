@@ -7,7 +7,7 @@ import { createClasseAction, deleteClasseAction, saveClassiBulkAction } from "@/
 
 type Corso = { id: string; nome: string };
 type Row = { id: string; iscrittoId: string; insegnanteId: string; anni: string; corsoId: string; codiceNumerico: number; cognomeIscritto: string; nomeIscritto: string; insegnanteNome: string };
-type Isc = { id: string; codiceNumerico: number; cognomeIscritto: string; nomeIscritto: string; preferenzaInsegnanteId: string | null };
+type Isc = { id: string; codiceNumerico: number; cognomeIscritto: string; nomeIscritto: string; sesso: "M" | "F"; preferenzaInsegnanteId: string | null };
 type Ins = { id: string; nome: string };
 
 function Submit({ disabled }: { disabled?: boolean }) {
@@ -36,6 +36,9 @@ function generateDistribution(students: Isc[], teacherIds: string[]) {
   teacherIds.forEach((id, idx) => (targets[id] = base + (idx < extra ? 1 : 0)));
 
   const selectedSet = new Set(teacherIds);
+  const totalM = students.filter((s) => s.sesso === "M").length;
+  const totalF = n - totalM;
+
   const preferred: Isc[] = [];
   const others: Isc[] = [];
   for (const s of students) {
@@ -43,26 +46,58 @@ function generateDistribution(students: Isc[], teacherIds: string[]) {
     else others.push(s);
   }
 
-  const pool: Isc[] = [];
+  const overflow: Isc[] = [];
   // place preferred first (respect preference), overflow goes to pool
   for (const s of shuffle(preferred)) {
     const tid = s.preferenzaInsegnanteId!;
     if (cols[tid].length < targets[tid]) cols[tid].push(s);
-    else pool.push(s);
+    else overflow.push(s);
   }
-  pool.push(...shuffle(others));
 
-  // fill remaining slots to targets
-  for (const tid of teacherIds) {
-    while (cols[tid].length < targets[tid] && pool.length) {
-      cols[tid].push(pool.shift()!);
+  const remaining = shuffle([...others, ...overflow]);
+  const pools: Record<"M" | "F", Isc[]> = { M: [], F: [] };
+  for (const s of remaining) pools[s.sesso].push(s);
+
+  const countGender = (tid: string, g: "M" | "F") => cols[tid].filter((s) => s.sesso === g).length;
+  const needGender = (tid: string, g: "M" | "F") => {
+    const t = targets[tid];
+    const desired = n === 0 ? 0 : (g === "M" ? totalM : totalF) * (t / n);
+    return desired - countGender(tid, g);
+  };
+
+  const pickFrom = (g: "M" | "F") => pools[g].shift();
+
+  // fill remaining slots to targets, balancing M/F per class
+  for (let pass = 0; pass < n; pass++) {
+    let progressed = false;
+    for (const tid of teacherIds) {
+      if (cols[tid].length >= targets[tid]) continue;
+      let choice: Isc | undefined;
+      if (pools.M.length && pools.F.length) {
+        const dm = needGender(tid, "M");
+        const df = needGender(tid, "F");
+        if (dm > df) choice = pickFrom("M");
+        else if (df > dm) choice = pickFrom("F");
+        else choice = pickFrom(totalM >= totalF ? "M" : "F");
+      } else if (pools.M.length) {
+        choice = pickFrom("M");
+      } else if (pools.F.length) {
+        choice = pickFrom("F");
+      }
+      if (choice) {
+        cols[tid].push(choice);
+        progressed = true;
+      }
     }
+    if (!progressed) break;
   }
+
   // if anything left (shouldn't happen), distribute round-robin
+  const leftovers = [...pools.M, ...pools.F];
   let idx = 0;
-  while (pool.length) {
+  while (leftovers.length) {
     const tid = teacherIds[idx % k];
-    cols[tid].push(pool.shift()!);
+    cols[tid].push(leftovers.shift()!);
     idx++;
   }
   return cols;
@@ -180,7 +215,7 @@ function Wizard({
 
         {step === 1 ? (
           <div className="space-y-4">
-            <p className="text-sm text-blue-700">Seleziona gli insegnanti, poi genera una distribuzione casuale (uguale ±1) tenendo conto delle preferenze.</p>
+            <p className="text-sm text-blue-700">Seleziona gli insegnanti, poi genera una distribuzione casuale (uguale ±1) tenendo conto delle preferenze e bilanciando maschi e femmine.</p>
             <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
               {insegnanti.map((i) => (
                 <label key={i.id} className="flex items-center gap-2 rounded border p-2">

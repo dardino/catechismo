@@ -56,6 +56,7 @@ export async function listIscrittiOptionsForAnnoCorso(anni: string, corsoId: str
       codiceNumerico: iscritti.codiceNumerico,
       cognomeIscritto: iscritti.cognomeIscritto,
       nomeIscritto: iscritti.nomeIscritto,
+      sesso: iscritti.sesso,
       preferenzaInsegnanteId: iscrizioniAnni.preferenzaInsegnanteId,
     })
     .from(iscrizioniAnni)
